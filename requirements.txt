@@ -1,0 +1,67 @@
+# Core GUI and System
+tkinter
+tkinterdnd2
+
+# Screenshot and Image Processing
+pyautogui
+Pillow
+opencv-python
+numpy
+
+# OCR and Text Processing
+pytesseract
+langchain
+langchain-openai
+langchain-community
+
+# Azure OpenAI Integration
+openai
+
+# Database
+sqlite3
+chromadb
+pymongo
+
+# Document Processing
+PyPDF2
+python-docx
+openpyxl
+beautifulsoup4
+markdown
+
+# File Handling
+pathlib
+shutil
+mimetypes
+
+# Audio Processing
+speech_recognition
+pyaudio
+
+# Vector Database
+sentence-transformers
+faiss-cpu
+
+# Utilities
+python-dotenv
+asyncio
+threading
+queue
+datetime
+json
+os
+sys
+logging
+
+# UI Enhancements
+ttk
+tkinter.ttk
+tkinter.messagebox
+tkinter.filedialog
+tkinter.scrolledtext
+
+# Progress and Feedback
+tqdm
+
+# Error Handling
+traceback 
