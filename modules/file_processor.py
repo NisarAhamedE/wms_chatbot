@@ -60,12 +60,12 @@ class FileProcessor(LoggerMixin):
             '.txt': TextProcessor(),
             '.md': MarkdownProcessor(),
             '.html': HTMLProcessor(),
-            '.png': ImageProcessor(),
-            '.jpg': ImageProcessor(),
-            '.jpeg': ImageProcessor(),
-            '.gif': ImageProcessor(),
-            '.bmp': ImageProcessor(),
-            '.tiff': ImageProcessor()
+            '.png': ImageProcessor(config_manager),
+            '.jpg': ImageProcessor(config_manager),
+            '.jpeg': ImageProcessor(config_manager),
+            '.gif': ImageProcessor(config_manager),
+            '.bmp': ImageProcessor(config_manager),
+            '.tiff': ImageProcessor(config_manager)
         }
         
         # Initialize Azure OpenAI client
@@ -87,7 +87,8 @@ class FileProcessor(LoggerMixin):
                 self.azure_client = AzureOpenAI(
                     api_key=azure_config["api_key"],
                     api_version=azure_config["api_version"],
-                    azure_endpoint=azure_config["endpoint"]
+                    azure_endpoint=azure_config["endpoint"],
+                    azure_deployment=azure_config["deployment"]["vision"]
                 )
                 self.log_info("Azure OpenAI client initialized")
             else:
@@ -171,6 +172,9 @@ class FileProcessor(LoggerMixin):
             # Process file
             start_time = time.time()
             processor = self.processors[file_ext]
+            if isinstance(processor, ImageProcessor):
+                processor.azure_client = self.azure_client
+                processor.config_manager = self.config_manager
             content = processor.extract_text(str(file_path))
             processing_time = time.time() - start_time
             
@@ -253,7 +257,7 @@ class FileProcessor(LoggerMixin):
     
     def process_screenshot(self, screenshot_path: str) -> Dict[str, Any]:
         """
-        Process screenshot and extract text using OCR
+        Process screenshot and extract text using Azure Vision API
         
         Args:
             screenshot_path: Path to screenshot image
@@ -267,16 +271,53 @@ class FileProcessor(LoggerMixin):
             if not screenshot_path.exists():
                 raise FileNotFoundError(f"Screenshot not found: {screenshot_path}")
             
-            # Use image processor for OCR
-            processor = self.processors['.png']  # Use PNG processor for all images
-            content = processor.extract_text(str(screenshot_path))
+            if not self.azure_client:
+                raise ValueError("Azure OpenAI client not initialized")
+            
+            # Get Azure configuration
+            azure_config = self.config_manager.get_azure_config()
+            if not azure_config:
+                raise ValueError("Azure OpenAI configuration not found")
+            
+            # Read image and convert to base64
+            import base64
+            with open(str(screenshot_path), 'rb') as image_file:
+                image_data = image_file.read()
+                base64_image = base64.b64encode(image_data).decode('utf-8')
+            
+            # Process with Azure Vision API
+            response = self.azure_client.chat.completions.create(
+                model=azure_config["deployment"]["vision"],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Extract all text from this image. Return only the text content, no explanations."
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{base64_image}"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=4000
+            )
+            
+            # Extract content from response
+            content = response.choices[0].message.content
             
             # Prepare metadata
             metadata = {
                 'input_type': 'screenshot',
                 'image_path': str(screenshot_path),
                 'image_size': screenshot_path.stat().st_size,
-                'timestamp': time.time()
+                'timestamp': time.time(),
+                'processor': 'azure_vision'
             }
             
             # Store in database
@@ -296,7 +337,7 @@ class FileProcessor(LoggerMixin):
                 'screenshot_path': str(screenshot_path)
             }
             
-            self.log_info(f"Screenshot processed successfully: {screenshot_path.name}")
+            self.log_info(f"Screenshot processed successfully with Azure Vision: {screenshot_path.name}")
             return result
             
         except Exception as e:
@@ -467,18 +508,16 @@ class HTMLProcessor(BaseProcessor):
 class ImageProcessor(BaseProcessor):
     """Process image files with OCR"""
     
-    def __init__(self):
+    def __init__(self, config_manager: ConfigManager = None):
         super().__init__()
         self.azure_client = None  # Will be set by FileProcessor
+        self.config_manager = config_manager
     
     def extract_text(self, file_path: str) -> str:
         try:
-            # Try Azure OpenAI Vision API first
-            if self.azure_client:
-                return self._extract_with_azure(file_path)
-            else:
-                # Fallback to Tesseract OCR
-                return self._extract_with_tesseract(file_path)
+            if not self.azure_client:
+                return "Azure OpenAI Vision API not configured. Please configure Azure OpenAI to enable text extraction."
+            return self._extract_with_azure(file_path)
         except Exception as e:
             self.log_error(f"Error extracting text from image {file_path}: {e}")
             raise
@@ -486,9 +525,19 @@ class ImageProcessor(BaseProcessor):
     def _extract_with_azure(self, file_path: str) -> str:
         """Extract text using Azure OpenAI Vision API"""
         try:
+            if not self.azure_client:
+                raise ValueError("Azure OpenAI client not initialized")
+            
+            azure_config = self.config_manager.get_azure_config()
+            if not azure_config:
+                raise ValueError("Azure OpenAI configuration not found")
+            
+            import base64
             with open(file_path, 'rb') as image_file:
+                image_data = image_file.read()
+                base64_image = base64.b64encode(image_data).decode('utf-8')
                 response = self.azure_client.chat.completions.create(
-                    model="gpt-4-vision-preview",
+                    model=azure_config["deployment"]["vision"],
                     messages=[
                         {
                             "role": "user",
@@ -500,7 +549,7 @@ class ImageProcessor(BaseProcessor):
                                 {
                                     "type": "image_url",
                                     "image_url": {
-                                        "url": f"data:image/jpeg;base64,{image_file.read()}"
+                                        "url": f"data:image/jpeg;base64,{base64_image}"
                                     }
                                 }
                             ]
@@ -510,8 +559,8 @@ class ImageProcessor(BaseProcessor):
                 )
                 return response.choices[0].message.content
         except Exception as e:
-            self.log_error(f"Azure Vision API failed, falling back to Tesseract: {e}")
-            return self._extract_with_tesseract(file_path)
+            self.log_error(f"Azure Vision API failed: {e}")
+            raise  # Don't fall back to Tesseract
     
     def _extract_with_tesseract(self, file_path: str) -> str:
         """Extract text using Tesseract OCR"""

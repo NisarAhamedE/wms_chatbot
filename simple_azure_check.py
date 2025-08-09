@@ -1,25 +1,35 @@
 import os
 from openai import AzureOpenAI
-from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+def test_azure_connection():
+    """Test Azure OpenAI connection"""
+    try:
+        # Initialize the client
+        client = AzureOpenAI(
+            api_key="db8dac9cea3148d48c348ed46e9bfb2d",
+            api_version="2024-02-15-preview",
+            azure_endpoint="https://bodeu-des-csv02.openai.azure.com/"
+        )
 
-# Get credentials from environment variables
-api_key = os.getenv('AZURE_OPENAI_KEY')
-endpoint = os.getenv('AZURE_OPENAI_URL')
-deployment = os.getenv('AZURE_DEPLOYMENT')
+        # Test with a simple completion
+        response = client.chat.completions.create(
+            model="azure-gpt-4o",  # deployment name
+            messages=[
+                {"role": "user", "content": "Say 'Hello, Azure OpenAI is working!' if you can see this message."}
+            ],
+            max_tokens=100
+        )
 
-# Check if credentials are set
-if not all([api_key, endpoint, deployment]):
-    print("❌ Missing credentials! Set AZURE_OPENAI_KEY, AZURE_OPENAI_URL, AZURE_DEPLOYMENT")
-    exit(1)
+        # Print the response
+        print("✅ Connection Test Successful!")
+        print(f"Response: {response.choices[0].message.content}")
+        return True
 
-# Create client and test
-try:
-    client = AzureOpenAI(api_key=api_key, azure_endpoint=endpoint, api_version="2024-12-01-preview")
-    response = client.chat.completions.create(model=deployment, messages=[{"role": "user", "content": "Say 'Hello World'"}], max_tokens=10)
-    print("✅ Azure OpenAI is working!")
-    print(f"Response: {response.choices[0].message.content}")
-except Exception as e:
-    print(f"❌ Error: {e}") 
+    except Exception as e:
+        print(f"❌ Connection Test Failed!")
+        print(f"Error: {str(e)}")
+        return False
+
+if __name__ == "__main__":
+    print("🔍 Testing Azure OpenAI Connection...")
+    test_azure_connection()

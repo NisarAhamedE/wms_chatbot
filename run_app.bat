@@ -1,9 +1,0 @@
-@echo off
-echo Starting Screenshot Capture App...
-echo.
-echo Installing dependencies...
-pip install -r requirements.txt
-echo.
-echo Launching application...
-python screenshot_app.py
-pause 

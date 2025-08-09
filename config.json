@@ -6,10 +6,15 @@
     "backup_interval": 24
   },
   "azure_openai": {
-    "api_key": "",
-    "endpoint": "",
-    "deployment_name": "",
-    "api_version": "2024-02-15-preview"
+    "api_key": "db8dac9cea3148d48c348ed46e9bfb2d",
+    "endpoint": "https://bodeu-des-csv02.openai.azure.com/",
+    "deployment": {
+      "chat": "azure-gpt-4o",
+      "embeddings": "azure-gpt-4o",
+      "vision": "azure-gpt-4o"
+    },
+    "api_version": "2024-02-15-preview",
+    "model_name": "gpt-4o"
   },
   "file_processing": {
     "max_file_size": 52428800,

@@ -1,0 +1,5 @@
+---
+description: make sure the code changes are aline with PRD.md which is under .cursor folder
+globs: yes
+alwaysApply: false
+---

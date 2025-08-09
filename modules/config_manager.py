@@ -26,10 +26,15 @@ class ConfigManager:
                 "backup_interval": 24  # hours
             },
             "azure_openai": {
-                "api_key": os.getenv("AZURE_OPENAI_API_KEY", ""),
+                "api_key": os.getenv("AZURE_OPENAI_KEY", ""),
                 "endpoint": os.getenv("AZURE_OPENAI_ENDPOINT", ""),
-                "deployment_name": os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", ""),
-                "api_version": os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
+                "deployment": {
+                    "chat": os.getenv("AZURE_OPENAI_DEPLOYMENT_CHAT", "azure-gpt-4o"),
+                    "embeddings": os.getenv("AZURE_OPENAI_DEPLOYMENT_EMBEDDINGS", "azure-gpt-4o"),
+                    "vision": os.getenv("AZURE_OPENAI_DEPLOYMENT_VISION", "azure-gpt-4o")
+                },
+                "api_version": os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview"),
+                "model_name": os.getenv("AZURE_OPENAI_MODEL_NAME", "gpt-4o")
             },
             "file_processing": {
                 "max_file_size": 50 * 1024 * 1024,  # 50MB
@@ -152,13 +157,18 @@ class ConfigManager:
         # Save to file
         self.save_config(self.config)
     
-    def get_azure_config(self) -> Dict[str, str]:
+    def get_azure_config(self) -> Dict[str, Any]:
         """Get Azure OpenAI configuration"""
         return {
             "api_key": self.get("azure_openai.api_key"),
             "endpoint": self.get("azure_openai.endpoint"),
-            "deployment_name": self.get("azure_openai.deployment_name"),
-            "api_version": self.get("azure_openai.api_version")
+            "deployment": {
+                "chat": self.get("azure_openai.deployment.chat"),
+                "embeddings": self.get("azure_openai.deployment.embeddings"),
+                "vision": self.get("azure_openai.deployment.vision")
+            },
+            "api_version": self.get("azure_openai.api_version"),
+            "model_name": self.get("azure_openai.model_name")
         }
     
     def get_database_config(self) -> Dict[str, Any]:
@@ -187,7 +197,10 @@ class ConfigManager:
         return all([
             azure_config["api_key"],
             azure_config["endpoint"],
-            azure_config["deployment_name"]
+            azure_config["deployment"]["chat"],
+            azure_config["deployment"]["vision"],
+            azure_config["api_version"],
+            azure_config["model_name"]
         ])
     
     def validate_config(self) -> Dict[str, str]:

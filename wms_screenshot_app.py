@@ -15,6 +15,7 @@ from typing import Dict, List, Optional, Any
 from modules.database_manager import DatabaseManager
 from modules.file_processor import FileProcessor
 from modules.chatbot_manager import ChatbotManager
+from modules.backup_scheduler import BackupScheduler
 from modules.ui_components import (
     CaptureTab, ManagementTab, ChatbotTab,
     DragDropHandler, ProgressTracker
@@ -36,9 +37,13 @@ class WMSScreenshotApp:
         self.db_manager = DatabaseManager()
         self.file_processor = FileProcessor(self.db_manager)
         self.chatbot_manager = ChatbotManager(self.db_manager)
+        self.backup_scheduler = BackupScheduler(self.db_manager, self.config_manager)
         
         # Setup logging
         self.logger = setup_logger()
+        
+        # Start backup scheduler
+        self.backup_scheduler.start()
         
         # Initialize data structures
         self.processing_queue = queue.Queue()
@@ -73,12 +78,17 @@ class WMSScreenshotApp:
         self.root.geometry(f'{width}x{height}+{x}+{y}')
     
     def setup_ui(self):
-        """Setup the main UI with three tabs"""
+        """Setup the main UI"""
         # Create main notebook
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         # Create tabs
+        self.chatbot_tab = ChatbotTab(
+            self.notebook, 
+            self.chatbot_manager
+        )
+        
         self.capture_tab = CaptureTab(
             self.notebook, 
             self.file_processor, 
@@ -92,21 +102,104 @@ class WMSScreenshotApp:
             self.file_processor
         )
         
-        self.chatbot_tab = ChatbotTab(
-            self.notebook, 
-            self.chatbot_manager
-        )
-        
-        # Add tabs to notebook
+        # Add tabs to notebook with WMS Chatbot as default
+        self.notebook.add(self.chatbot_tab, text="🤖 WMS Chatbot")
         self.notebook.add(self.capture_tab, text="📸 Capture")
         self.notebook.add(self.management_tab, text="📁 Management")
-        self.notebook.add(self.chatbot_tab, text="🤖 WMS Chatbot")
+        
+        # Select WMS Chatbot tab by default
+        self.notebook.select(0)
         
         # Bind tab change events
         self.notebook.bind('<<NotebookTabChanged>>', self.on_tab_changed)
         
         # Create status bar
         self.create_status_bar()
+    
+    def setup_styles(self):
+        """Configure modern dark theme styles"""
+        style = ttk.Style()
+        
+        # Configure dark theme colors
+        style.configure('.',
+            background='#1e1e2d',
+            foreground='white',
+            fieldbackground='#2d2d3f'
+        )
+        
+        # Dark frame
+        style.configure('Dark.TFrame',
+            background='#1e1e2d'
+        )
+        
+        # Card frame
+        style.configure('Card.TFrame',
+            background='#2d2d3f',
+            relief='solid',
+            borderwidth=1
+        )
+        
+        # Card labelframe
+        style.configure('Card.TLabelframe',
+            background='#2d2d3f',
+            foreground='white',
+            relief='solid',
+            borderwidth=1
+        )
+        style.configure('Card.TLabelframe.Label',
+            background='#2d2d3f',
+            foreground='white',
+            font=('Segoe UI', 11, 'bold')
+        )
+        
+        # Card title
+        style.configure('CardTitle.TLabel',
+            background='#2d2d3f',
+            foreground='white',
+            font=('Segoe UI', 11)
+        )
+        
+        # Card value
+        style.configure('CardValue.TLabel',
+            background='#2d2d3f',
+            foreground='white',
+            font=('Segoe UI', 20, 'bold')
+        )
+        
+        # Storage text
+        style.configure('StorageText.TLabel',
+            background='#1e1e2d',
+            foreground='white',
+            font=('Segoe UI', 16, 'bold'),
+            justify='center'
+        )
+        
+        # Notebook
+        style.configure('TNotebook',
+            background='#1e1e2d',
+            borderwidth=0
+        )
+        style.configure('TNotebook.Tab',
+            background='#2d2d3f',
+            foreground='white',
+            padding=[10, 5],
+            font=('Segoe UI', 10)
+        )
+        style.map('TNotebook.Tab',
+            background=[('selected', '#1a73e8')],
+            foreground=[('selected', 'white')]
+        )
+        
+        # Buttons
+        style.configure('TButton',
+            background='#1a73e8',
+            foreground='white',
+            padding=[10, 5],
+            font=('Segoe UI', 10)
+        )
+        style.map('TButton',
+            background=[('active', '#1557b0')]
+        )
     
     def create_status_bar(self):
         """Create status bar at bottom of window"""
@@ -133,13 +226,15 @@ class WMSScreenshotApp:
         current_tab = self.notebook.select()
         tab_id = self.notebook.index(current_tab)
         
-        if tab_id == 0:  # Capture tab
+        if tab_id == 0:  # Dashboard tab
+            self.status_label.config(text="Dashboard - System Overview")
+        elif tab_id == 1:  # Chatbot tab
+            self.status_label.config(text="WMS Chatbot - Ready for queries")
+        elif tab_id == 2:  # Capture tab
             self.status_label.config(text="Capture tab - Ready to process documents")
-        elif tab_id == 1:  # Management tab
+        elif tab_id == 3:  # Management tab
             self.status_label.config(text="Management tab - Managing stored documents")
             self.management_tab.refresh_file_list()
-        elif tab_id == 2:  # Chatbot tab
-            self.status_label.config(text="WMS Chatbot - Ready for queries")
     
     def start_background_processing(self):
         """Start background processing thread"""
@@ -283,6 +378,10 @@ class WMSScreenshotApp:
             
             # Stop background processing
             self.processing_queue.put(None)
+            
+            # Stop backup scheduler
+            if hasattr(self, 'backup_scheduler'):
+                self.backup_scheduler.stop()
             
             # Close database connections
             if hasattr(self, 'db_manager'):

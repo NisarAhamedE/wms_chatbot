@@ -1,67 +1,31 @@
-# Core GUI and System
-tkinter
-tkinterdnd2
-
-# Screenshot and Image Processing
-pyautogui
-Pillow
-opencv-python
-numpy
+# Core Dependencies
+pyautogui>=0.9.54
+Pillow>=10.0.0
+opencv-python>=4.8.0
+numpy>=1.24.0
 
 # OCR and Text Processing
-pytesseract
-langchain
-langchain-openai
-langchain-community
+pytesseract>=0.3.10
+langchain>=0.1.0
+langchain-openai>=0.0.2
+langchain-community>=0.0.10
+langchain-core>=0.1.10
 
 # Azure OpenAI Integration
-openai
+openai>=1.6.0
 
-# Database
-sqlite3
-chromadb
-pymongo
+# Database and Vector Store
+chromadb>=0.4.18
+sentence-transformers>=2.2.2
 
 # Document Processing
-PyPDF2
-python-docx
-openpyxl
-beautifulsoup4
-markdown
-
-# File Handling
-pathlib
-shutil
-mimetypes
-
-# Audio Processing
-speech_recognition
-pyaudio
-
-# Vector Database
-sentence-transformers
-faiss-cpu
+PyPDF2>=3.0.0
+python-docx>=1.0.0
+openpyxl>=3.1.2
+beautifulsoup4>=4.12.0
+markdown>=3.5.0
 
 # Utilities
-python-dotenv
-asyncio
-threading
-queue
-datetime
-json
-os
-sys
-logging
-
-# UI Enhancements
-ttk
-tkinter.ttk
-tkinter.messagebox
-tkinter.filedialog
-tkinter.scrolledtext
-
-# Progress and Feedback
-tqdm
-
-# Error Handling
-traceback 
+python-dotenv>=1.0.0
+tqdm>=4.66.0
+schedule>=1.2.0

@@ -7,16 +7,21 @@ def test_azure_openai_key():
     """Test Azure OpenAI key functionality"""
     
     # Azure OpenAI Configuration
-    # You need to set these environment variables or replace with your actual values
-    AZURE_OPENAI_KEY = os.getenv('AZURE_OPENAI_KEY', 'your-azure-openai-key-here')
-    AZURE_OPENAI_ENDPOINT = os.getenv('AZURE_OPENAI_ENDPOINT', 'https://your-resource.openai.azure.com/')
-    AZURE_OPENAI_API_VERSION = os.getenv('AZURE_OPENAI_API_VERSION', '2024-02-15-preview')
-    AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME', 'your-deployment-name')
+    AZURE_OPENAI_KEY = os.getenv('AZURE_OPENAI_KEY', 'db8dac9cea3148d48c348ed46e9bfb2d')
+    AZURE_OPENAI_ENDPOINT = os.getenv('AZURE_OPENAI_ENDPOINT', 'https://bodeu-des-csv02.openai.azure.com/')
+    AZURE_OPENAI_API_VERSION = os.getenv('AZURE_OPENAI_API_VERSION', '2024-12-01-preview')
+    
+    # Deployment names for different operations
+    AZURE_OPENAI_CHAT_DEPLOYMENT = 'azure-gpt-4o'
+    AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT = 'text-embedding-ada-002'
+    AZURE_OPENAI_VISION_DEPLOYMENT = 'azure-gpt-4o'
     
     print("🔍 Testing Azure OpenAI Key...")
     print(f"Endpoint: {AZURE_OPENAI_ENDPOINT}")
     print(f"API Version: {AZURE_OPENAI_API_VERSION}")
-    print(f"Deployment: {AZURE_OPENAI_DEPLOYMENT_NAME}")
+    print(f"Chat Deployment: {AZURE_OPENAI_CHAT_DEPLOYMENT}")
+    print(f"Embeddings Deployment: {AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT}")
+    print(f"Vision Deployment: {AZURE_OPENAI_VISION_DEPLOYMENT}")
     print("-" * 50)
     
     # Test 1: Simple Chat Completion
@@ -24,7 +29,7 @@ def test_azure_openai_key():
         """Test basic chat completion"""
         print("📝 Test 1: Chat Completion")
         
-        url = f"{AZURE_OPENAI_ENDPOINT}openai/deployments/{AZURE_OPENAI_DEPLOYMENT_NAME}/chat/completions"
+        url = f"{AZURE_OPENAI_ENDPOINT}openai/deployments/{AZURE_OPENAI_CHAT_DEPLOYMENT}/chat/completions"
         
         headers = {
             "Content-Type": "application/json",
@@ -69,7 +74,7 @@ def test_azure_openai_key():
         """Test text generation"""
         print("\n📝 Test 2: Text Generation")
         
-        url = f"{AZURE_OPENAI_ENDPOINT}openai/deployments/{AZURE_OPENAI_DEPLOYMENT_NAME}/completions"
+        url = f"{AZURE_OPENAI_ENDPOINT}openai/deployments/{AZURE_OPENAI_CHAT_DEPLOYMENT}/completions"
         
         headers = {
             "Content-Type": "application/json",
@@ -112,7 +117,7 @@ def test_azure_openai_key():
         """Test embeddings generation"""
         print("\n📝 Test 3: Embeddings")
         
-        url = f"{AZURE_OPENAI_ENDPOINT}openai/deployments/{AZURE_OPENAI_DEPLOYMENT_NAME}/embeddings"
+        url = f"{AZURE_OPENAI_ENDPOINT}openai/deployments/{AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT}/embeddings"
         
         headers = {
             "Content-Type": "application/json",
@@ -153,7 +158,7 @@ def test_azure_openai_key():
         """Test getting model information"""
         print("\n📝 Test 4: Model Information")
         
-        url = f"{AZURE_OPENAI_ENDPOINT}openai/deployments/{AZURE_OPENAI_DEPLOYMENT_NAME}"
+        url = f"{AZURE_OPENAI_ENDPOINT}openai/deployments/{AZURE_OPENAI_CHAT_DEPLOYMENT}"
         
         headers = {
             "api-key": AZURE_OPENAI_KEY
@@ -189,7 +194,7 @@ def test_azure_openai_key():
         """Test image analysis with GPT-4 Vision"""
         print("\n📝 Test 5: Image Analysis (GPT-4 Vision)")
         
-        url = f"{AZURE_OPENAI_ENDPOINT}openai/deployments/{AZURE_OPENAI_DEPLOYMENT_NAME}/chat/completions"
+        url = f"{AZURE_OPENAI_ENDPOINT}openai/deployments/{AZURE_OPENAI_VISION_DEPLOYMENT}/chat/completions"
         
         headers = {
             "Content-Type": "application/json",
@@ -288,12 +293,14 @@ def setup_environment():
     """Setup environment variables for testing"""
     print("🔧 Setting up environment variables...")
     
-    # You can set these environment variables or modify the values here
+    # Azure OpenAI Configuration
     env_vars = {
-        'AZURE_OPENAI_KEY': 'your-azure-openai-key-here',
-        'AZURE_OPENAI_ENDPOINT': 'https://your-resource.openai.azure.com/',
-        'AZURE_OPENAI_API_VERSION': '2024-02-15-preview',
-        'AZURE_OPENAI_DEPLOYMENT_NAME': 'your-deployment-name'
+        'AZURE_OPENAI_KEY': 'db8dac9cea3148d48c348ed46e9bfb2d',
+        'AZURE_OPENAI_ENDPOINT': 'https://bodeu-des-csv02.openai.azure.com/',
+        'AZURE_OPENAI_API_VERSION': '2024-12-01-preview',
+        'AZURE_OPENAI_CHAT_DEPLOYMENT': 'azure-gpt-4o',
+        'AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT': 'text-embedding-ada-002',
+        'AZURE_OPENAI_VISION_DEPLOYMENT': 'azure-gpt-4o'
     }
     
     print("Please set the following environment variables:")
