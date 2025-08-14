@@ -34,7 +34,7 @@ class WMSScreenshotApp:
         
         # Initialize managers
         self.config_manager = ConfigManager()
-        self.db_manager = DatabaseManager()
+        self.db_manager = DatabaseManager(config_manager=self.config_manager)
         self.file_processor = FileProcessor(self.db_manager)
         self.chatbot_manager = ChatbotManager(self.db_manager)
         self.backup_scheduler = BackupScheduler(self.db_manager, self.config_manager)

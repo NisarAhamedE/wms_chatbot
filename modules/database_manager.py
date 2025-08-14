@@ -1,89 +1,87 @@
-import sqlite3
 import json
 import os
 import threading
 import time
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 import chromadb
 from chromadb.config import Settings
 import uuid
+import psycopg2
+from psycopg2.pool import SimpleConnectionPool
 
 from .logger import LoggerMixin
+from .config_manager import ConfigManager
 
 class DatabaseManager(LoggerMixin):
     """
-    Manages both SQLite and ChromaDB databases for the WMS application
+    Manages PostgreSQL (TimescaleDB) + ChromaDB for the WMS application
     """
     
     def __init__(self, sqlite_path: str = "data/wms_screenshots.db", 
                  chroma_path: str = "data/chroma_db",
-                 max_connections: int = 5):
+                 max_connections: int = 10,
+                 config_manager: ConfigManager = None):
         super().__init__()
         
-        self.sqlite_path = Path(sqlite_path)
+        self.config_manager = config_manager or ConfigManager()
+        self.db_config = self.config_manager.get_database_config()
+        
         self.chroma_path = Path(chroma_path)
         self.max_connections = max_connections
         
-        # Thread-local storage for SQLite connections
-        self._thread_local = threading.local()
+        # PostgreSQL pool
+        pg = self.db_config.get("postgres", {})
+        self._pg_pool = SimpleConnectionPool(
+            pg.get("pool_min", 1),
+            pg.get("pool_max", self.max_connections),
+            dsn=self.config_manager.get_postgres_dsn()
+        )
+        
+        # Initialize Postgres schema
+        self._init_postgres()
         
         # Initialize ChromaDB flags
         self._chroma_initialized = False
         self._chroma_init_lock = threading.Lock()
         
         # Ensure directories exist
-        self.sqlite_path.parent.mkdir(parents=True, exist_ok=True)
         self.chroma_path.mkdir(parents=True, exist_ok=True)
-        
-        # Initialize SQLite first (required)
-        self.init_sqlite()
-        
-        # Enable WAL mode for better concurrency
-        self._execute_sql("PRAGMA journal_mode=WAL")
-        self._execute_sql("PRAGMA synchronous=NORMAL")
-        self._execute_sql("PRAGMA cache_size=-2000") # 2MB cache
-        self._execute_sql("PRAGMA temp_store=MEMORY")
-        self._execute_sql("PRAGMA mmap_size=30000000000") # 30GB memory map
         
         # Initialize ChromaDB in background thread
         threading.Thread(target=self._init_chromadb_async, daemon=True).start()
         
-        self.log_info("Database manager initialized with optimized settings")
+        self.log_info("Database manager initialized for PostgreSQL + ChromaDB")
     
-    def _get_connection(self) -> sqlite3.Connection:
-        """Get a thread-local SQLite connection"""
-        if not hasattr(self._thread_local, 'connection'):
-            conn = sqlite3.connect(self.sqlite_path)
-            conn.row_factory = sqlite3.Row
-            self._thread_local.connection = conn
-        return self._thread_local.connection
-    
-    def _execute_sql(self, sql: str, params: tuple = None) -> sqlite3.Cursor:
-        """Execute SQL with thread-local connection"""
-        conn = self._get_connection()
+    def _pg_conn(self):
+        """Get a PostgreSQL connection from the pool."""
+        return self._pg_pool.getconn()
+
+    def _execute_pg(self, sql: str, params: tuple = None, fetch: bool = False):
+        """Execute SQL against PostgreSQL with automatic commit and optional fetch."""
+        conn = self._pg_conn()
         try:
-            cursor = conn.cursor()
-            if params:
-                cursor.execute(sql, params)
-            else:
-                cursor.execute(sql)
-            conn.commit()  # Auto-commit after each execution
-            return cursor
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute(sql, params or ())
+                    if fetch:
+                        return cur.fetchall()
+                    return None
         except Exception as e:
-            self.log_error(f"SQL execution error: {e}")
+            self.log_error(f"PostgreSQL execution error: {e}")
             raise
+        finally:
+            self._pg_pool.putconn(conn)
     
-    def init_sqlite(self):
-        """Initialize SQLite database with required tables"""
+    def _init_postgres(self):
+        """Initialize PostgreSQL (enable Timescale, create tables)."""
         try:
-            # Get thread-local connection and create tables
-            conn = self._get_connection()
+            self._execute_pg("CREATE EXTENSION IF NOT EXISTS timescaledb;")
             self.create_tables()
-            
         except Exception as e:
-            self.log_error(f"Failed to initialize SQLite database: {e}")
+            self.log_error(f"Failed to initialize PostgreSQL database: {e}")
             raise
     
     def _init_chromadb_async(self):
@@ -207,78 +205,69 @@ class DatabaseManager(LoggerMixin):
         self._init_chromadb_async()
     
     def create_tables(self):
-        """Create SQLite tables if they don't exist"""
-        # Get thread-local connection
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        # Documents table
-        self._execute_sql("""
+        """Create PostgreSQL tables if they don't exist (screenshots as hypertable)."""
+        # Documents
+        self._execute_pg(
+            """
             CREATE TABLE IF NOT EXISTS documents (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 document_id TEXT UNIQUE NOT NULL,
                 filename TEXT NOT NULL,
                 file_path TEXT NOT NULL,
                 file_type TEXT NOT NULL,
-                file_size INTEGER,
+                file_size BIGINT,
                 content TEXT,
-                metadata TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                metadata JSONB,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW(),
                 status TEXT DEFAULT 'processed',
                 error_message TEXT
-            )
-        """)
-        
-        # Screenshots table
-        self._execute_sql("""
+            );
+            """
+        )
+        # Screenshots
+        self._execute_pg(
+            """
             CREATE TABLE IF NOT EXISTS screenshots (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 screenshot_id TEXT UNIQUE NOT NULL,
                 document_id TEXT,
                 image_path TEXT NOT NULL,
-                page_number INTEGER,
+                page_number INT,
                 extracted_text TEXT,
-                confidence_score REAL,
-                processing_time REAL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (document_id) REFERENCES documents (document_id)
-            )
-        """)
-        
-        # Processing history table
-        self._execute_sql("""
+                confidence_score DOUBLE PRECISION,
+                processing_time DOUBLE PRECISION,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+            """
+        )
+        self._execute_pg("SELECT create_hypertable('screenshots', 'created_at', if_not_exists => TRUE);")
+        # Processing history
+        self._execute_pg(
+            """
             CREATE TABLE IF NOT EXISTS processing_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 document_id TEXT,
                 operation TEXT NOT NULL,
                 status TEXT NOT NULL,
                 details TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (document_id) REFERENCES documents (document_id)
-            )
-        """)
-        
-        # Create optimized indexes
-        self._execute_sql("CREATE INDEX IF NOT EXISTS idx_documents_filename ON documents (filename)")
-        self._execute_sql("CREATE INDEX IF NOT EXISTS idx_documents_file_type ON documents (file_type)")
-        self._execute_sql("CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents (created_at)")
-        self._execute_sql("CREATE INDEX IF NOT EXISTS idx_documents_status ON documents (status)")
-        self._execute_sql("CREATE INDEX IF NOT EXISTS idx_documents_updated_at ON documents (updated_at)")
-        self._execute_sql("CREATE INDEX IF NOT EXISTS idx_documents_combined ON documents (file_type, status, created_at)")
-        
-        self._execute_sql("CREATE INDEX IF NOT EXISTS idx_screenshots_document_id ON screenshots (document_id)")
-        self._execute_sql("CREATE INDEX IF NOT EXISTS idx_screenshots_created_at ON screenshots (created_at)")
-        self._execute_sql("CREATE INDEX IF NOT EXISTS idx_screenshots_confidence ON screenshots (confidence_score)")
-        
-        self._execute_sql("CREATE INDEX IF NOT EXISTS idx_processing_history_document_id ON processing_history (document_id)")
-        self._execute_sql("CREATE INDEX IF NOT EXISTS idx_processing_history_status ON processing_history (status)")
-        self._execute_sql("CREATE INDEX IF NOT EXISTS idx_processing_history_operation ON processing_history (operation)")
-        
-        # Add ANALYZE to optimize query planner
-        self._execute_sql("ANALYZE")
-        
-        self.log_info("SQLite tables and indexes created successfully")
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+            """
+        )
+        # Indexes
+        self._execute_pg("CREATE INDEX IF NOT EXISTS idx_documents_filename ON documents (filename);")
+        self._execute_pg("CREATE INDEX IF NOT EXISTS idx_documents_file_type ON documents (file_type);")
+        self._execute_pg("CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents (created_at);")
+        self._execute_pg("CREATE INDEX IF NOT EXISTS idx_documents_status ON documents (status);")
+        self._execute_pg("CREATE INDEX IF NOT EXISTS idx_documents_combined ON documents (file_type, status, created_at);")
+        self._execute_pg("CREATE INDEX IF NOT EXISTS idx_screenshots_document_id ON screenshots (document_id);")
+        self._execute_pg("CREATE INDEX IF NOT EXISTS idx_screenshots_created_at ON screenshots (created_at);")
+        self._execute_pg("CREATE INDEX IF NOT EXISTS idx_screenshots_confidence ON screenshots (confidence_score);")
+        self._execute_pg("CREATE INDEX IF NOT EXISTS idx_processing_history_document_id ON processing_history (document_id);")
+        self._execute_pg("CREATE INDEX IF NOT EXISTS idx_processing_history_status ON processing_history (status);")
+        self._execute_pg("CREATE INDEX IF NOT EXISTS idx_processing_history_operation ON processing_history (operation);")
+        self.log_info("PostgreSQL tables and indexes created successfully")
     
     def store_document(self, file_path: str, content: str, metadata: Dict[str, Any], 
                        validate: bool = True) -> str:
@@ -556,7 +545,7 @@ class DatabaseManager(LoggerMixin):
             return []
     
     def get_document_by_id(self, document_id: str) -> Optional[Dict[str, Any]]:
-        """Get document by ID from SQLite"""
+        """Get document by ID from PostgreSQL"""
         cursor = self._execute_sql("""
             SELECT * FROM documents WHERE document_id = ?
         """, (document_id,))
@@ -730,7 +719,7 @@ class DatabaseManager(LoggerMixin):
             # Get document IDs for batch retrieval
             doc_ids = results['ids'][0]
             
-            # Batch retrieve documents from SQLite
+        # Batch retrieve documents from PostgreSQL
             placeholders = ','.join(['?' for _ in doc_ids])
             cursor = self._execute_sql(
                 f"""

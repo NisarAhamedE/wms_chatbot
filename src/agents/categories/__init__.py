@@ -1,0 +1,1 @@
+# WMS Category Agents - Specialized agents for each of the 16 WMS categories

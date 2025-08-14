@@ -127,9 +127,9 @@ class BackupScheduler(LoggerMixin):
             backup_dir = self.backup_path / backup_type / backup_name
             backup_dir.mkdir(parents=True, exist_ok=True)
             
-            # Backup SQLite database
-            sqlite_backup = backup_dir / "wms_screenshots.db"
-            success = self.db_manager.backup_database(str(sqlite_backup))
+            # Backup PostgreSQL database (SQL dump)
+            pg_dump_file = backup_dir / "postgres_dump.sql"
+            success = self.db_manager.backup_database(str(pg_dump_file))
             
             if not success:
                 raise Exception("SQLite backup failed")
@@ -146,7 +146,7 @@ class BackupScheduler(LoggerMixin):
             metadata = {
                 "backup_type": backup_type,
                 "timestamp": timestamp,
-                "sqlite_path": str(sqlite_backup),
+                "postgres_dump_file": str(pg_dump_file),
                 "chroma_path": str(chroma_backup),
                 "database_stats": self.db_manager.get_database_stats()
             }

@@ -37,7 +37,7 @@ A powerful Warehouse Management System (WMS) chatbot application with enhanced d
 
 ### Technology Stack
 - **GUI**: Tkinter with ttk styling
-- **Database**: SQLite (metadata) + ChromaDB (vector embeddings)
+- **Database**: PostgreSQL + TimescaleDB (metadata, time-series) + ChromaDB (vector embeddings)
 - **AI/ML**: Azure OpenAI, LangChain, Tesseract OCR
 - **Document Processing**: PyPDF2, python-docx, openpyxl, BeautifulSoup
 - **Image Processing**: OpenCV, Pillow, NumPy
@@ -72,7 +72,7 @@ langchain-community
 openai
 
 # Database
-sqlite3
+psycopg2-binary
 chromadb
 pymongo
 
@@ -139,13 +139,21 @@ pip install -r requirements.txt
 - **Linux**: `sudo apt-get install tesseract-ocr`
 - **macOS**: `brew install tesseract`
 
-### 4. Configure Azure OpenAI (Optional)
+### 4. Configure Azure OpenAI and Database
 Create a `.env` file in the project root:
 ```env
 AZURE_OPENAI_API_KEY=your_api_key_here
 AZURE_OPENAI_ENDPOINT=your_endpoint_here
 AZURE_OPENAI_DEPLOYMENT_NAME=your_deployment_name
 AZURE_OPENAI_API_VERSION=2024-02-15-preview
+
+# PostgreSQL
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=wms
+DB_USER=wms_user
+DB_PASSWORD=change_me
+DB_SSLMODE=prefer
 ```
 
 ## 🚀 Usage

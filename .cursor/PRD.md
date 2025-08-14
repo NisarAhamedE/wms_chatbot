@@ -218,11 +218,11 @@ To provide the most comprehensive and user-friendly screenshot capture solution 
 
 ### 4.4 Compatibility Requirements
 - **NFR-023**: Support Windows 10/11, macOS 10.15+, and Linux (Ubuntu 18.04+)
-- **NFR-024**: Require Python 3.7 or higher
+- **NFR-024**: Require Python 3.8 or higher
 - **NFR-025**: Support multiple screen resolutions and DPI settings
 - **NFR-026**: Compatible with common antivirus and security software
-- **NFR-027**: Support common SQL databases (SQLite, PostgreSQL, MySQL)
-- **NFR-028**: Support vector databases (Chroma, Pinecone, Weaviate)
+- **NFR-027**: Use PostgreSQL 13+ with TimescaleDB 2.x for SQL storage
+- **NFR-028**: Support vector database Chroma (persistent mode)
 - **NFR-029**: Compatible with speech recognition libraries and APIs
 - **NFR-030**: Support common audio formats for voice input
 

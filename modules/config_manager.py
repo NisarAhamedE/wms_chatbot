@@ -20,10 +20,21 @@ class ConfigManager:
         # Default configuration
         self.default_config = {
             "database": {
+                "engine": "postgres",  # options: 'postgres' or 'sqlite' (legacy)
                 "sqlite_path": "data/wms_screenshots.db",
                 "chroma_path": "data/chroma_db",
                 "backup_enabled": True,
-                "backup_interval": 24  # hours
+                "backup_interval": 24,  # hours
+                "postgres": {
+                    "host": os.getenv("DB_HOST", "localhost"),
+                    "port": int(os.getenv("DB_PORT", "5432")),
+                    "dbname": os.getenv("DB_NAME", "wms"),
+                    "user": os.getenv("DB_USER", "wms_user"),
+                    "password": os.getenv("DB_PASSWORD", "wms_password"),
+                    "sslmode": os.getenv("DB_SSLMODE", "prefer"),
+                    "pool_min": 1,
+                    "pool_max": 10
+                }
             },
             "azure_openai": {
                 "api_key": os.getenv("AZURE_OPENAI_KEY", ""),
@@ -174,6 +185,18 @@ class ConfigManager:
     def get_database_config(self) -> Dict[str, Any]:
         """Get database configuration"""
         return self.get("database")
+
+    def get_postgres_dsn(self) -> str:
+        """Build a PostgreSQL DSN string from config."""
+        cfg = self.get("database.postgres")
+        return (
+            f"host={cfg['host']} port={cfg['port']} dbname={cfg['dbname']} "
+            f"user={cfg['user']} password={cfg['password']} sslmode={cfg['sslmode']}"
+        )
+
+    def use_postgres(self) -> bool:
+        """Return True if the selected engine is PostgreSQL."""
+        return self.get("database.engine", "postgres").lower() == "postgres"
     
     def get_file_processing_config(self) -> Dict[str, Any]:
         """Get file processing configuration"""

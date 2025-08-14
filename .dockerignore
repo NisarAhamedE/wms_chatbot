@@ -1,0 +1,75 @@
+# Docker ignore file
+.git
+.gitignore
+README.md
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.pytest_cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.DS_Store
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Logs
+logs/
+*.log
+
+# Data files (but keep structure)
+data/*
+!data/.gitkeep
+uploads/*
+!uploads/.gitkeep
+
+# Environment files
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Node modules (if any)
+node_modules/
+
+# Documentation build
+docs/_build/
+
+# Test files
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Local database files
+*.db
+*.sqlite3

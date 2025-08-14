@@ -1,0 +1,1 @@
+# WMS Agents Package - Core agentic framework for 16 categories × 5 sub-categories = 80 specialized agents

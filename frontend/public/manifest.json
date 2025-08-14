@@ -1,0 +1,29 @@
+{
+  "short_name": "WMS Chatbot",
+  "name": "WMS Chatbot File Management System",
+  "description": "Enterprise warehouse management system with AI-powered file processing and chatbot assistance",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#1976d2",
+  "background_color": "#ffffff",
+  "categories": ["business", "productivity", "utilities"],
+  "scope": "/",
+  "orientation": "portrait-primary"
+}
